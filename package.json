@@ -1,0 +1,59 @@
+{
+  "name": "chestnut",
+  "version": "0.0.0",
+  "author": "Florent Benoit",
+  "description": "bot for che",
+  "license": "MIT",
+  "private": true,
+  "dependencies": {
+    "cron": "^1.3.0",
+    "github": "^11.0.0",
+    "githubot": "^1.0.1",
+    "hubot": "^2.19.0",
+    "hubot-matteruser": "^4.1.1",
+    "node": "^8.3.0"
+  },
+  "devDependencies": {
+    "@types/chai": "^4.0.4",
+    "@types/cron": "^1.2.1",
+    "@types/hubot": "^2.19.0",
+    "@types/mocha": "^2.2.43",
+    "@types/request": "^2.0.1",
+    "chai": "^4.1.2",
+    "codecov": "^2.3.0",
+    "mocha": "^4.0.0",
+    "nyc": "^11.2.1",
+    "ts-mockito": "^2.2.2",
+    "ts-node": "^3.3.0",
+    "tslint": "^5.7.0",
+    "typescript": "^2.5.3",
+    "typescript-formatter": "^6.0.0"
+  },
+  "scripts": {
+    "ci": "npm run build && npm run report",
+    "build": "npm run test && npm run format-code && npm run compile && npm run tslint",
+    "report": "nyc report --reporter=json && codecov -f coverage/*.json",
+    "compile": "tsc --project .",
+    "format-code": "tsfmt -r",
+    "tslint": "tslint --fix src/*.ts src/**/*.ts",
+    "test": "nyc mocha",
+    "testold": "mocha --compilers ts:ts-node/register tests/*test.ts"
+  },
+  "nyc": {
+    "include": [
+      "src/**/*.ts"
+    ],
+    "extension": [
+      ".ts"
+    ],
+    "require": [
+      "ts-node/register"
+    ],
+    "reporter": [
+      "text-summary",
+      "html"
+    ],
+    "sourceMap": true,
+    "instrument": true
+  }
+}
