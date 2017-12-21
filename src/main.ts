@@ -17,8 +17,6 @@ export = (robot: Hubot.Robot): void => {
 
   let cheVersion: string;
   let cheMilestoneNumber: number;
-  let che6Version: string;
-  let che6MilestoneNumber: number;
   let addMilestoneCheOnMergedPR: AddMilestoneOnMergedPR;
 
   const githubRead: GitHub = new GitHub();
@@ -52,7 +50,8 @@ export = (robot: Hubot.Robot): void => {
   function grabCheMasterMilestone(): void {
     // first, get che latest version
 
-    const grabCheVersion: any = /<\/parent>[^]*<version>(\d+\.\d+\.\d)(?:-.*)?<\/version>[^]*<packaging>/gm;
+    const grabCheVersion: any =
+      /<\/parent>[^]*<version>(\d+\.\d+\.\d(?:-.*\d)*)(?:-SNAPSHOT)?<\/version>[^]*<packaging>/gm;
 
     https.get("https://raw.githubusercontent.com/eclipse/che/master/pom.xml", (resp: any) => {
       let data = "";
@@ -88,60 +87,6 @@ export = (robot: Hubot.Robot): void => {
             });
 
             if (foundMilestone) {
-              grabChe6Milestone();
-            }
-          }
-
-        });
-
-      });
-
-    }).on("error", (err: any) => {
-      logger.error("Error: " + err.message);
-    });
-
-  }
-
-  function grabChe6Milestone(): void {
-    // first, get che latest version
-
-    const grabChe6Version: any =
-      /<\/parent>[^]*<version>(\d+\.\d+\.\d(?:-.*\d)*)(?:-SNAPSHOT)?<\/version>[^]*<packaging>/gm;
-
-    https.get("https://raw.githubusercontent.com/eclipse/che/che6/pom.xml", (resp: any) => {
-      let data = "";
-
-      resp.on("data", (chunk: string) => {
-        data += chunk;
-      });
-
-      // The whole response has been received. Print out the result.
-      resp.on("end", () => {
-
-        const parsedVersion = grabChe6Version.exec(data);
-        if (parsedVersion) {
-          che6Version = parsedVersion[1];
-
-        }
-
-        const issuesGetMilestonesParams: GitHub.IssuesGetMilestonesParams = Object.create(null);
-        issuesGetMilestonesParams.owner = "eclipse";
-        issuesGetMilestonesParams.repo = "che";
-
-        githubRead.issues.getMilestones(issuesGetMilestonesParams, (err: any, res: any) => {
-          if (res) {
-
-            let foundMilestone: boolean = false;
-            const milestonesData = res.data;
-            milestonesData.forEach((milestone: any) => {
-              if (milestone.title === che6Version) {
-                foundMilestone = true;
-                che6MilestoneNumber = parseInt(milestone.number);
-              }
-
-            });
-
-            if (foundMilestone) {
               performCheck();
             }
           }
@@ -167,7 +112,7 @@ export = (robot: Hubot.Robot): void => {
         = new AddKindFromLinkedIssueOnPendingPR(githubRead);
       pullRequestHandlers.push(addKindFromLinkedIssueOnPendingPR);
 
-      addMilestoneCheOnMergedPR = new AddMilestoneOnMergedPR(cheMilestoneNumber, che6MilestoneNumber);
+      addMilestoneCheOnMergedPR = new AddMilestoneOnMergedPR(cheMilestoneNumber);
       pullRequestHandlers.push(addMilestoneCheOnMergedPR);
       const addTargetBranchIfNotMaster: AddTargetBranchIfNotMaster
         = new AddTargetBranchIfNotMaster();
@@ -182,7 +127,7 @@ export = (robot: Hubot.Robot): void => {
       notifications = new Notifications(githubRead, githubPush, notifier, logger, pullRequestHandlers);
 
     } else {
-      addMilestoneCheOnMergedPR.updateMilestoneNumber(cheMilestoneNumber, che6MilestoneNumber);
+      addMilestoneCheOnMergedPR.updateMilestoneNumber(cheMilestoneNumber);
     }
     notifications.check();
   }
