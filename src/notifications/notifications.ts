@@ -1,5 +1,6 @@
 
-import * as GitHub from "github";
+import * as Octokit from "@octokit/rest";
+import { IssueHandler } from "../issue/issue-handler";
 import { Issues } from "../issue/issues";
 import { Logger } from "../log/logger";
 import { Notifier } from "../notify/notifier";
@@ -12,50 +13,44 @@ import { PullRequests } from "../pull-request/pull-requests";
  */
 export class Notifications {
 
-  private githubRead: GitHub;
-  private githubPush: GitHub;
+  private githubRead: Octokit;
+  private githubPush: Octokit;
   private notifier: Notifier;
   private logger: Logger;
 
   private issues: Issues;
   private pullRequests: PullRequests;
 
-  private checkNotifAfterDate: Date = new Date("02 November 2017 08:00 UTC");
+  private checkNotifAfterDate: Date = new Date("01 August 2019 14:00 UTC");
 
   constructor(
-    githubRead: GitHub,
-    githubPush: GitHub,
+    githubRead: Octokit,
+    githubPush: Octokit,
     notifier: Notifier,
     logger: Logger,
-    handlers: IPullRequestHandler[]) {
+    prHandlers: IPullRequestHandler[],
+    issueHandlers: IssueHandler[],
+    ) {
     this.githubRead = githubRead;
     this.githubPush = githubPush;
     this.notifier = notifier;
     this.logger = logger;
-    this.issues = new Issues(githubRead, githubPush, notifier, logger);
-    this.pullRequests = new PullRequests(githubRead, githubPush, notifier, logger, handlers);
+    this.issues = new Issues(githubRead, githubPush, notifier, logger, issueHandlers);
+    this.pullRequests = new PullRequests(githubRead, githubPush, notifier, logger, prHandlers);
   }
 
-  public check(): void {
-    const activityGetNotificationsParams: GitHub.ActivityGetNotificationsParams = Object.create(null);
-    activityGetNotificationsParams.since = this.checkNotifAfterDate;
+  public async check(): Promise<void> {
     this.logger.debug("Checking notifs after date", this.checkNotifAfterDate);
+    const response = await this.githubRead.paginate(`GET /notifications?since=${this.checkNotifAfterDate.toISOString()}`);
     this.checkNotifAfterDate = new Date();
-
-    this.githubRead.activity.getNotifications(activityGetNotificationsParams, (err, res) => {
-      if (err) {
-        this.logger.error("Unable to get notifications", err);
-        return;
-      }
-      this.handlePageNotifications(res);
-    });
+    this.handleNotifications(response);
   }
 
-  protected handleNotifications(data: any[]): void {
+  protected handleNotifications(data: any): void {
     this.logger.debug("we are in handleNotifications... and array is ", data.length);
 
     data.forEach((notif: any) => {
-      let commentId: string = "";
+      let commentId: string = "0";
       if (notif.subject.url !== notif.subject.latest_comment_url) {
         const match: RegExpExecArray | null = /(?:\/issues\/comments\/)(\d+)/g.exec(notif.subject.latest_comment_url);
         if (match !== null) {
@@ -69,7 +64,7 @@ export class Notifications {
           const pullRequestNumber: number = parseInt(match[1]);
           const owner: string = notif.repository.owner.login;
           const repo: string = notif.repository.name;
-          this.pullRequests.analyze(owner, repo, pullRequestNumber, commentId);
+          this.pullRequests.analyze(owner, repo, pullRequestNumber, parseInt(commentId));
         } else {
           this.logger.error("Unable to get pull request number from the URL", notif.subject.url);
         }
@@ -79,7 +74,7 @@ export class Notifications {
           const issueNumber: number = parseInt(match[1]);
           const owner: string = notif.repository.owner.login;
           const repo: string = notif.repository.name;
-          this.issues.analyze(owner, repo, issueNumber, commentId);
+          this.issues.analyze(owner, repo, issueNumber, parseInt(commentId));
         } else {
           this.logger.error("Unable to get issue number from the URL", notif.subject.url);
         }
@@ -89,13 +84,4 @@ export class Notifications {
 
   }
 
-  protected handlePageNotifications(res: any): void {
-    this.handleNotifications(res.data);
-    if (this.githubRead.hasNextPage(res)) {
-
-      this.githubRead.getNextPage(res, undefined, (nextErr, nextRes) => {
-        this.handlePageNotifications(nextRes);
-      });
-    }
-  }
 }

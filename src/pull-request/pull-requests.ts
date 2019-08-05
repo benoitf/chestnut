@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as Octokit from "@octokit/rest";
 import { Actions } from "../action/actions";
 import { CommentInfo } from "../comment/comment-info";
 import { IssueInfo } from "../issue/issue-info";
@@ -11,15 +11,15 @@ import { PullRequestInfo } from "./pull-request-info";
  */
 export class PullRequests {
 
-  private githubRead: GitHub;
-  private githubPush: GitHub;
+  private githubRead: Octokit;
+  private githubPush: Octokit;
   private notifier: Notifier;
   private logger: Logger;
   private handlers: IPullRequestHandler[];
 
   constructor(
-    githubRead: GitHub,
-    githubPush: GitHub,
+    githubRead: Octokit,
+    githubPush: Octokit,
     notifier: Notifier,
     logger: Logger,
     handlers: IPullRequestHandler[]) {
@@ -30,62 +30,48 @@ export class PullRequests {
     this.handlers = handlers;
   }
 
-  public analyze(owner: string, repo: string, pullRequestNumber: number, commentId: string): void {
+  public async analyze(owner: string, repo: string, pullRequestNumber: number, comment_id: number): Promise<void> {
 
-    if (commentId.length > 0) {
-      const params: GitHub.IssuesGetCommentParams = Object.create(null);
-      params.owner = owner;
-      params.repo = repo;
-      params.id = commentId;
-      this.githubRead.issues.getComment(params, (err, res) => {
-        if (err) {
-          this.logger.error("----> unable to get PR comment : ", err);
-        } else {
-          this.doHandlePullRequest(owner, repo, pullRequestNumber, new CommentInfo(res.data));
+    if (comment_id > 0) {
+      const params: Octokit.IssuesGetCommentParams = {owner, repo, comment_id};
+      const response = await this.githubRead.issues.getComment(params);
+      if (response.data) {
+          this.doHandlePullRequest(owner, repo, pullRequestNumber, new CommentInfo(response.data));
         }
-      });
     } else {
       this.doHandlePullRequest(owner, repo, pullRequestNumber);
     }
 
   }
 
-  protected doHandlePullRequest(
+  protected async doHandlePullRequest(
     owner: string, repo: string,
-    pullRequestNumber: number,
-    commentInfo?: CommentInfo | undefined): void {
-    const params: GitHub.PullRequestsGetParams = Object.create(null);
-    params.owner = owner;
-    params.repo = repo;
-    params.number = pullRequestNumber;
+    pull_number: number,
+    commentInfo?: CommentInfo | undefined): Promise<void> {
+    const params: Octokit.PullsGetParams = {owner, repo, pull_number};
 
-    this.githubRead.pullRequests.get(params, (err, res) => {
-      if (res) {
-        const pullRequestData: Github.IPullRequestData = res.data;
-        this.completePullRequestData(owner, repo, pullRequestNumber, commentInfo, pullRequestData);
+    const response = await this.githubRead.pulls.get(params);
+    if (response.status === 200) {
+        const pullRequestData: Octokit.PullsGetResponse = response.data;
+        this.completePullRequestData(owner, repo, pull_number, commentInfo, pullRequestData);
       }
-    });
   }
 
-  protected completePullRequestData(
+  protected async completePullRequestData(
     owner: string,
     repo: string,
-    pullRequestNumber: number,
+    issue_number: number,
     commentInfo: CommentInfo | undefined,
-    pullRequestData: Github.IPullRequestData): void {
+    pullRequestData: Octokit.PullsGetResponse): Promise<void> {
 
-    const params: GitHub.IssuesGetParams = Object.create(null);
-    params.owner = owner;
-    params.repo = repo;
-    params.number = pullRequestNumber;
+    const params: Octokit.IssuesGetParams =  {owner, repo, issue_number};
 
-    this.githubRead.issues.get(params, (err: any, res: any) => {
+    const reponse = await this.githubRead.issues.get(params);
 
-      const issueInfo: IssueInfo = new IssueInfo(res.data);
-      const pullRequestInfo: PullRequestInfo = new PullRequestInfo(pullRequestData, issueInfo, commentInfo);
-      const actions = new Actions(this.githubPush, this.notifier, pullRequestInfo.repoOwner(),
+    const issueInfo: IssueInfo = new IssueInfo(reponse.data, repo);
+    const pullRequestInfo: PullRequestInfo = new PullRequestInfo(pullRequestData, issueInfo, commentInfo);
+    const actions = new Actions(this.githubPush, this.notifier, pullRequestInfo.repoOwner(),
         pullRequestInfo.repoName(), pullRequestInfo.number());
-      this.handlers.forEach((handler: IPullRequestHandler) => handler.execute(pullRequestInfo, actions, this.notifier));
-    });
+    this.handlers.forEach((handler: IPullRequestHandler) => handler.execute(pullRequestInfo, actions, this.notifier));
   }
 }

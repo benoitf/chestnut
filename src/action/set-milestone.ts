@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as Octokit from "@octokit/rest";
 import { Notifier } from "../notify/notifier";
 
 /**
@@ -6,13 +6,13 @@ import { Notifier } from "../notify/notifier";
  */
 export class SetMilestone {
 
-  private githubPush: GitHub;
+  private githubPush: Octokit;
   private notifier: Notifier;
   private owner: string;
   private repo: string;
   private issueNumber: number;
 
-  constructor(githubPush: GitHub, notifier: Notifier, owner: string, repo: string, issueNumber: number) {
+  constructor(githubPush: Octokit, notifier: Notifier, owner: string, repo: string, issueNumber: number) {
     this.githubPush = githubPush;
     this.notifier = notifier;
     this.owner = owner;
@@ -20,21 +20,11 @@ export class SetMilestone {
     this.issueNumber = issueNumber;
   }
 
-  public set(version: number, link: string): void {
+  public async set(milestone: number, link: string): Promise<void> {
 
-    const issuesEditParams: GitHub.IssuesEditParams = Object.create(null);
-    issuesEditParams.owner = this.owner;
-    issuesEditParams.repo = this.repo;
-    issuesEditParams.number = this.issueNumber;
-    issuesEditParams.milestone = version;
-
-    this.githubPush.issues.edit(issuesEditParams, (err, res) => {
-      if (err) {
-        this.notifier.notify("Error when applying the milestone" + link + "error: " + err);
-      } else {
-        this.notifier.notify("Applied the milestone with version " + version + " on PR "
+    const issuesUpdateParams: Octokit.IssuesUpdateParams = {owner: this.owner, repo: this.repo, milestone, issue_number: this.issueNumber};
+    await this.githubPush.issues.update(issuesUpdateParams);
+    this.notifier.notify("Applied the milestone with version " + milestone + " on PR "
           + this.issueNumber + " : " + link);
-      }
-    });
   }
 }

@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as GitHub from "@octokit/rest";
 import { Notifier } from "../notify/notifier";
 import { AddLabel } from "./add-label";
 import { RemoveLabel } from "./remove-label";

@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as GitHub from "@octokit/rest";
 import { Notifier } from "../notify/notifier";
 
 /**
@@ -20,15 +20,15 @@ export class AddLabel {
     this.issueNumber = issueNumber;
   }
 
-  public add(labelsToAdd: string[], link: string): void {
-    const params: GitHub.IssuesAddLabelsParams = Object.create(null);
-    params.owner = this.owner;
-    params.repo = this.repo;
-    params.number = this.issueNumber;
-    params.labels = labelsToAdd;
+  public async add(labels: string[], link: string): Promise<void> {
+    const params: GitHub.IssuesAddLabelsParams = {
+      issue_number: this.issueNumber,
+      labels,
+      owner: this.owner,
+      repo: this.repo,
+    };
 
-    this.githubPush.issues.addLabels(params, (err, res) => {
-      this.notifier.notify("Added the label **" + labelsToAdd + "** on issue " + this.issueNumber + ":" + link);
-    });
+    await this.githubPush.issues.addLabels(params);
+    this.notifier.notify("Added the label **" + labels + "** on issue " + this.issueNumber + ":" + link);
   }
 }

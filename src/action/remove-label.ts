@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as GitHub from "@octokit/rest";
 import { Notifier } from "../notify/notifier";
 
 /**
@@ -20,21 +20,15 @@ export class RemoveLabel {
     this.issueNumber = issueNumber;
   }
 
-  public remove(labelToRemove: string, link: string): void {
-    const params: GitHub.IssuesRemoveLabelParams = Object.create(null);
-    params.owner = this.owner;
-    params.repo = this.repo;
-    params.number = this.issueNumber;
-    params.name = labelToRemove;
-
-    this.githubPush.issues.removeLabel(params, (err, res) => {
-      if (err) {
-        this.notifier.error("Unable to remove the label  " + labelToRemove
-          + " on issue " + this.issueNumber + ":" + err);
-      }
-      if (res) {
-        this.notifier.notify("Removed the label " + labelToRemove + " on issue " + this.issueNumber + ":" + link);
-      }
-    });
+  public remove(name: string, link: string): void {
+    const params: GitHub.IssuesRemoveLabelParams = {
+      issue_number: this.issueNumber,
+      name,
+      owner: this.owner,
+      repo: this.repo
+    };
+  
+    this.githubPush.issues.removeLabel(params);
+    this.notifier.notify("Removed the label " + name + " on issue " + this.issueNumber + ":" + link);
   }
 }

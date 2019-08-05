@@ -1,4 +1,4 @@
-import * as GitHub from "github";
+import * as GitHub from "@octokit/rest";
 import { Actions } from "../action/actions";
 import { IssueInfo } from "../issue/issue-info";
 import { Notifier } from "../notify/notifier";
@@ -11,7 +11,7 @@ export class AddKindFromLinkedIssueOnPendingPR implements IPullRequestHandler {
     this.githubRead = githubRead;
   }
 
-  public execute(pullRequestInfo: PullRequestInfo, actions: Actions, notifier: Notifier): void {
+  public async execute(pullRequestInfo: PullRequestInfo, actions: Actions, notifier: Notifier): Promise<void> {
 
     // check kind of PR/issues for merged or unmerged
     if (pullRequestInfo.issueInfo().hasKind()) {
@@ -25,54 +25,42 @@ export class AddKindFromLinkedIssueOnPendingPR implements IPullRequestHandler {
 
       const parsing = parsingRegexp.exec(referencedIssue);
 
-      const params: GitHub.IssuesGetParams = Object.create(null);
-
       if (parsing === null || parsing.length !== 4) {
         notifier.error("ERROR : unable to extract issue from referencedIssue: "
           + referencedIssue + ", got match =", parsing);
         return;
       }
 
-      params.owner = parsing[1];
-      params.repo = parsing[2];
-      params.number = parseInt(parsing[3]);
+      const params: GitHub.IssuesGetParams = { owner: parsing[1], repo: parsing[2], issue_number: parseInt(parsing[3]) };
 
-      this.githubRead.issues.get(params, (err: any, res: any) => {
+      const response = await this.githubRead.issues.get(params);
 
-        if (err) {
-          if (err.code === 404) {
-            notifier.notify("Link from PR " + pullRequestInfo.humanUrl()
-              + " to " + referencedIssue + " is an unacessible issue (err 404)");
-          } else {
-            notifier.error("Error while getting referenced isssue:", params.owner, params.repo, params.number, err);
-          }
+      if (response.status === 404) {
+        notifier.notify("Link from PR " + pullRequestInfo.humanUrl()
+          + " to " + referencedIssue + " is an unacessible issue (err 404)");
+        return;
+      }
+
+      const linkedIssueInfo = new IssueInfo(response.data, pullRequestInfo.repoName());
+
+      // ok now there are labels on the associated issue, check if there is a kind
+      if (linkedIssueInfo.hasKind()) {
+        // get the kind and apply it to the PR
+        let applyLabels: string[] = linkedIssueInfo.getKindLabels();
+
+        // replace epic by task for linked epic issues
+        if (applyLabels.length === 1 && applyLabels[0] === "kind/epic") {
+          applyLabels = ["kind/task"];
+
         }
+        actions.getAddLabels().add(applyLabels, ". Label is coming from linked issue "
+          + linkedIssueInfo.humanUrl());
 
-        if (res) {
-          const linkedIssueInfo = new IssueInfo(res.data);
-
-          // ok now there are labels on the associated issue, check if there is a kind
-          if (linkedIssueInfo.hasKind()) {
-            // get the kind and apply it to the PR
-            let applyLabels: string[] = linkedIssueInfo.getKindLabels();
-
-            // replace epic by task for linked epic issues
-            if (applyLabels.length === 1 && applyLabels[0] === "kind/epic") {
-              applyLabels = ["kind/task"];
-
-            }
-            actions.getAddLabels().add(applyLabels, ". Label is coming from linked issue "
-              + linkedIssueInfo.humanUrl());
-
-          } else {
-            notifier.notify("Cannot find any kind/label on the referenced issue "
-              + params.number + " in PR " + pullRequestInfo.humanUrl() + " , try to detect...");
-            this.tryToDetectAutomatically(pullRequestInfo, actions, notifier);
-          }
-        }
-
-      });
-
+      } else {
+        notifier.notify("Cannot find any kind/label on the referenced issue "
+          + params.issue_number + " in PR " + pullRequestInfo.humanUrl() + " , try to detect...");
+        this.tryToDetectAutomatically(pullRequestInfo, actions, notifier);
+      }
     } else {
       this.tryToDetectAutomatically(pullRequestInfo, actions, notifier);
 

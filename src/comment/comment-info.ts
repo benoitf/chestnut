@@ -1,11 +1,12 @@
+import * as Octokit from "@octokit/rest";
 /**
  * Info is a high level of the underlying data associated to an issue.
  */
 export class CommentInfo {
 
-  private commentData: Github.ICommentData;
+  private commentData: Octokit.IssuesGetCommentResponse;
 
-  constructor(commentData: Github.ICommentData) {
+  constructor(commentData: Octokit.IssuesGetCommentResponse) {
     this.commentData = commentData;
   }
 
@@ -24,7 +25,7 @@ export class CommentInfo {
     return this.commentData.user.html_url;
   }
 
-  public id(): string {
+  public id(): number {
     return this.commentData.id;
   }
 

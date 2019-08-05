@@ -1,12 +1,19 @@
+import * as Octokit from "@octokit/rest";
 /**
  * Info is a high level of the underlying data associated to an issue.
  */
 export class IssueInfo {
 
-  private issueData: Github.IssueData;
+  private issueData: Octokit.IssuesGetResponse;
+  private repoName: string;
 
-  constructor(issueData: Github.IssueData) {
+  constructor(issueData: Octokit.IssuesGetResponse, repoName: string) {
     this.issueData = issueData;
+    this.repoName = repoName;
+  }
+
+  public repositoryName(): string {
+    return this.repoName;
   }
 
   public number(): number {
@@ -82,6 +89,14 @@ export class IssueInfo {
 
   public isTargetBranch(): boolean {
     return this.labels().indexOf("target/branch") > -1;
+  }
+
+  public isClosed(): boolean {
+    return this.issueData.state === "closed";
+  }
+
+  public getCreated(): number {
+    return new Date(this.issueData.created_at).getTime();
   }
 
 }

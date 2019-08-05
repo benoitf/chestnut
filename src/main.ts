@@ -1,7 +1,8 @@
+import * as Octokit from "@octokit/rest";
 import { CronJob } from "cron";
-import * as GitHub from "github";
 import * as https from "https";
 import Hubot = require("hubot");
+import { IssueHandler } from "./issue/issue-handler";
 import { Logger } from "./log/logger";
 import { Notifications } from "./notifications/notifications";
 import { Notifier } from "./notify/notifier";
@@ -10,46 +11,41 @@ import { AddCodeReviewLabelOnPendingPR } from "./tasks/add-code-review-label-on-
 import { AddKindFromLinkedIssueOnPendingPR } from "./tasks/add-kind-from-linked-issue-on-pending-pr";
 import { AddMilestoneOnMergedPR } from "./tasks/add-milestone-on-merged-pr";
 import { AddTargetBranchIfNotMaster } from "./tasks/add-target-branch-if-not-master";
+import { AddTriageIssueIfNew } from "./tasks/add-triage-issue-if-new";
 import { DisplayPullRequestNotification } from "./tasks/display-pull-request-notification";
 import { RemoveCodeReviewLabelOnMergedPR } from "./tasks/remove-code-review-label-on-merged-pr";
 
-export = (robot: Hubot.Robot): void => {
-
+export = (robot: Hubot.Robot<void>): void => {
   let cheVersion: string;
   let cheMilestoneNumber: number;
   let addMilestoneCheOnMergedPR: AddMilestoneOnMergedPR;
 
-  const githubRead: GitHub = new GitHub();
   const githubReadToken: string = process.env.HUBOT_GITHUB_TOKEN || "";
   if ("" === githubReadToken) {
     throw new Error("Unable to start as HUBOT_GITHUB_TOKEN is missing");
   }
-  githubRead.authenticate({
-    token: githubReadToken,
-    type: "oauth",
-  });
+  const githubRead: Octokit = new Octokit({ auth: `token ${githubReadToken}` });
 
-  const githubPush: GitHub = new GitHub();
   const githubPushToken: string = process.env.HUBOT_GITHUB_PUSH_TOKEN || "";
   if ("" === githubPushToken) {
     throw new Error("Unable to start as HUBOT_GITHUB_PUSH_TOKEN is missing");
   }
-  githubPush.authenticate({
-    token: githubPushToken,
-    type: "oauth",
-  });
+  const githubPush: Octokit = new Octokit({ auth: `token ${githubPushToken}` });
 
   const notifier: Notifier = new Notifier(robot);
   const logger: Logger = new Logger();
   let notifications: Notifications | null = null;
 
-  function check(): void {
-    grabCheMasterMilestone();
+  check();
+
+  async function check(): Promise<void> {
+    await grabCheMasterMilestone();
   }
 
-  function grabCheMasterMilestone(): void {
-    // first, get che latest version
+  async function grabCheMasterMilestone(): Promise<void> {
 
+    cheMilestoneNumber = 0;
+    // first, get che latest version
     const grabCheVersion: any =
       /<\/parent>[^]*<version>(\d+\.\d+\.\d(?:-.*\d)*)(?:-SNAPSHOT)?<\/version>[^]*<packaging>/gm;
 
@@ -61,7 +57,7 @@ export = (robot: Hubot.Robot): void => {
       });
 
       // The whole response has been received. Print out the result.
-      resp.on("end", () => {
+      resp.on("end", async () => {
 
         const parsedVersion = grabCheVersion.exec(data);
         if (parsedVersion) {
@@ -69,29 +65,19 @@ export = (robot: Hubot.Robot): void => {
 
         }
 
-        const issuesGetMilestonesParams: GitHub.IssuesGetMilestonesParams = Object.create(null);
-        issuesGetMilestonesParams.owner = "eclipse";
-        issuesGetMilestonesParams.repo = "che";
+        const issuesGetMilestonesParams: Octokit.IssuesListMilestonesForRepoParams = {
+          owner: "eclipse",
+          repo: "che",
+        };
 
-        githubRead.issues.getMilestones(issuesGetMilestonesParams, (err: any, res: any) => {
-          if (res) {
-
-            let foundMilestone: boolean = false;
-            const milestonesData = res.data;
-            milestonesData.forEach((milestone: any) => {
-              if (milestone.title === cheVersion) {
-                foundMilestone = true;
-                cheMilestoneNumber = parseInt(milestone.number);
-              }
-
-            });
-
-            if (foundMilestone) {
-              performCheck();
-            }
+        const response: Octokit.Response<Octokit.IssuesListMilestonesForRepoResponse> = await githubRead.issues.listMilestonesForRepo(issuesGetMilestonesParams);
+        response.data.forEach((milestone: Octokit.IssuesListMilestonesForRepoResponseItem) => {
+          if (milestone.title === cheVersion) {
+            cheMilestoneNumber = milestone.number;
           }
 
         });
+        await performCheck();
 
       });
 
@@ -101,17 +87,17 @@ export = (robot: Hubot.Robot): void => {
 
   }
 
-  function performCheck(): void {
+  async function performCheck(): Promise<void> {
     if (notifications === null) {
 
-      const pullRequestHandlers: IPullRequestHandler[] = [];
+      let pullRequestHandlers: IPullRequestHandler[] = [];
+      const issueHandlers: IssueHandler[] = [];
       const addCodeReviewLabelOnPendingPR: AddCodeReviewLabelOnPendingPR
         = new AddCodeReviewLabelOnPendingPR();
       pullRequestHandlers.push(addCodeReviewLabelOnPendingPR);
       const addKindFromLinkedIssueOnPendingPR: AddKindFromLinkedIssueOnPendingPR
         = new AddKindFromLinkedIssueOnPendingPR(githubRead);
       pullRequestHandlers.push(addKindFromLinkedIssueOnPendingPR);
-
       addMilestoneCheOnMergedPR = new AddMilestoneOnMergedPR(cheMilestoneNumber);
       pullRequestHandlers.push(addMilestoneCheOnMergedPR);
       const addTargetBranchIfNotMaster: AddTargetBranchIfNotMaster
@@ -124,18 +110,25 @@ export = (robot: Hubot.Robot): void => {
         = new RemoveCodeReviewLabelOnMergedPR();
       pullRequestHandlers.push(removeCodeReviewLabelOnMergedPR);
 
-      notifications = new Notifications(githubRead, githubPush, notifier, logger, pullRequestHandlers);
+      const addTriageIssueIfNew = new AddTriageIssueIfNew();
+      issueHandlers.push(addTriageIssueIfNew);
+
+      notifications = new Notifications(githubRead, githubPush, notifier, logger, pullRequestHandlers, issueHandlers);
 
     } else {
       addMilestoneCheOnMergedPR.updateMilestoneNumber(cheMilestoneNumber);
     }
-    notifications.check();
+    await notifications.check();
   }
 
   const pattern = "*/10 * * * *";
   const timezone = "Europe/Paris";
   const job: CronJob = new CronJob(pattern, () => {
-    check();
+    try {
+      check();
+    } catch (err) {
+      console.log('error on check', err);
+    }
   }, () => undefined, false, timezone, null, true);
   job.start();
 

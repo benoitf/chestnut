@@ -1,8 +1,8 @@
 
 export class Notifier {
-  private robot: Hubot.Robot;
+  private robot: Hubot.Robot<void>;
 
-  constructor(robot: Hubot.Robot) {
+  constructor(robot: Hubot.Robot<void>) {
     this.robot = robot;
   }
 
@@ -11,11 +11,11 @@ export class Notifier {
   }
 
   public publishContent(...args: any[]): void {
-    (this.robot as any).messageRoom("che-github-essentials", "" + args);
+    (this.robot as any).messageRoom("chebot-actions", "" + args);
   }
 
   public error(...args: any[]): void {
-    (this.robot as any).messageRoom("florent-test2", "error:" + args);
+    (this.robot as any).messageRoom("chebot-actions", "error:" + args);
   }
 
 }

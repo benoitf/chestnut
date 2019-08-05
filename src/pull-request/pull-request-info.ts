@@ -1,14 +1,15 @@
 
+import * as Octokit from "@octokit/rest";
 import { isUndefined } from "util";
 import { CommentInfo } from "../comment/comment-info";
 import { IssueInfo } from "../issue/issue-info";
 export class PullRequestInfo {
 
-  private pullRequestData: Github.IPullRequestData;
+  private pullRequestData: Octokit.PullsGetResponse;
   private issueData: IssueInfo;
   private commentData: CommentInfo | undefined;
 
-  constructor(pullRequestData: Github.IPullRequestData, issueData: IssueInfo, commentInfo?: CommentInfo | undefined) {
+  constructor(pullRequestData: Octokit.PullsGetResponse, issueData: IssueInfo, commentInfo?: CommentInfo | undefined) {
     this.pullRequestData = pullRequestData;
     this.issueData = issueData;
     this.commentData = commentInfo;

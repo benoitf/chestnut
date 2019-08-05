@@ -10,6 +10,9 @@ export class AddMilestoneOnMergedPR implements IPullRequestHandler {
     this.cheMilestoneNumber = cheMilestoneNumber;
   }
   public execute(pullRequestInfo: PullRequestInfo, actions: Actions, notifier: Notifier): void {
+    if (this.cheMilestoneNumber === 0) {
+      return;
+    }
 
     if (pullRequestInfo.isMerged() && pullRequestInfo.issueInfo().milestone() === ""
       && pullRequestInfo.repoOwner() === "eclipse" && pullRequestInfo.repoName() === "che") {
