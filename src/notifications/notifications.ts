@@ -21,7 +21,7 @@ export class Notifications {
   private issues: Issues;
   private pullRequests: PullRequests;
 
-  private checkNotifAfterDate: Date = new Date("01 August 2019 14:00 UTC");
+  private checkNotifAfterDate: Date = new Date("06 September 2019 15:00 UTC");
 
   constructor(
     githubRead: Octokit,

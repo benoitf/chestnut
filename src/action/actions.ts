@@ -1,6 +1,7 @@
 import * as GitHub from "@octokit/rest";
 import { Notifier } from "../notify/notifier";
 import { AddLabel } from "./add-label";
+import { AddComment } from "./add-comment";
 import { RemoveLabel } from "./remove-label";
 import { SetMilestone } from "./set-milestone";
 
@@ -9,6 +10,7 @@ import { SetMilestone } from "./set-milestone";
  */
 export class Actions {
   private addLabel: AddLabel;
+  private addComment: AddComment;
   private setMilestone: SetMilestone;
   private removeLabel: RemoveLabel;
 
@@ -16,11 +18,17 @@ export class Actions {
     this.addLabel = new AddLabel(githubPush, notifier, owner, repo, issueNumber);
     this.removeLabel = new RemoveLabel(githubPush, notifier, owner, repo, issueNumber);
     this.setMilestone = new SetMilestone(githubPush, notifier, owner, repo, issueNumber);
+    this.addComment = new AddComment(githubPush, notifier, owner, repo, issueNumber);
   }
 
   public getAddLabels(): AddLabel {
     return this.addLabel;
   }
+
+  public getAddComment(): AddComment {
+    return this.addComment;
+  }
+
   public getRemoveLabel(): RemoveLabel {
     return this.removeLabel;
   }

@@ -16,6 +16,10 @@ export class IssueInfo {
     return this.repoName;
   }
 
+  public title(): string {
+    return this.issueData.title;
+  }
+
   public number(): number {
     return this.issueData.number;
   }
@@ -77,6 +81,11 @@ export class IssueInfo {
     return this.getLabels("kind");
   }
 
+  public getSeverityLabels(): string[] {
+    return this.getLabels("severity");
+  }
+
+
   public hasStatus(): boolean {
     return this.hasMatchingLabel("status");
 
@@ -97,6 +106,18 @@ export class IssueInfo {
 
   public getCreated(): number {
     return new Date(this.issueData.created_at).getTime();
+  }
+
+  public getUpdated(): number {
+    return new Date(this.issueData.updated_at).getTime();
+  }
+
+  public isOpen(): boolean {
+    return this.issueData.state === "open";
+  }
+
+  public isPullRequest() : boolean {
+    return !!this.issueData.pull_request;
   }
 
 }

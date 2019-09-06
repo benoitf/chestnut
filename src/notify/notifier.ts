@@ -18,4 +18,8 @@ export class Notifier {
     (this.robot as any).messageRoom("chebot-actions", "error:" + args);
   }
 
+  public displayReport(report: string): void {
+    (this.robot as any).messageRoom("triage-test", report);
+  }
+
 }

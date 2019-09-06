@@ -14,6 +14,9 @@ import { AddTargetBranchIfNotMaster } from "./tasks/add-target-branch-if-not-mas
 import { AddTriageIssueIfNew } from "./tasks/add-triage-issue-if-new";
 import { DisplayPullRequestNotification } from "./tasks/display-pull-request-notification";
 import { RemoveCodeReviewLabelOnMergedPR } from "./tasks/remove-code-review-label-on-merged-pr";
+import { TriageReport } from "./triage/triage-report";
+import { Stale } from "./stale/stale";
+import { RemoveLifecycleIfCommented } from "./tasks/remove-lifecycle-if-commented";
 
 export = (robot: Hubot.Robot<void>): void => {
   let cheVersion: string;
@@ -37,6 +40,8 @@ export = (robot: Hubot.Robot<void>): void => {
   let notifications: Notifications | null = null;
 
   check();
+  //reportTriage();
+  //flagStale();
 
   async function check(): Promise<void> {
     await grabCheMasterMilestone();
@@ -87,6 +92,18 @@ export = (robot: Hubot.Robot<void>): void => {
 
   }
 
+
+  async function reportTriage(): Promise<void> {
+   const triageReport = new TriageReport(githubRead, githubPush, notifier, logger);
+   triageReport.report(new Date());
+  }
+
+  async function flagStale(): Promise<void> {
+    const stale = new Stale(githubRead, githubPush, notifier, logger);
+    stale.compute();
+   }
+   
+
   async function performCheck(): Promise<void> {
     if (notifications === null) {
 
@@ -112,6 +129,9 @@ export = (robot: Hubot.Robot<void>): void => {
 
       const addTriageIssueIfNew = new AddTriageIssueIfNew();
       issueHandlers.push(addTriageIssueIfNew);
+      const removeLifecycleIfCommented = new RemoveLifecycleIfCommented(githubRead, githubPush);
+      issueHandlers.push(removeLifecycleIfCommented);
+
 
       notifications = new Notifications(githubRead, githubPush, notifier, logger, pullRequestHandlers, issueHandlers);
 
