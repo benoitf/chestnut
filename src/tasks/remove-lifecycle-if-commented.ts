@@ -48,7 +48,7 @@ export class RemoveLifecycleIfCommented implements IssueHandler {
     // check every body of each comment
     const needToRemoveStale = commentsDescOrder.some(comment => {
       if (comment.body) {
-        return '/remove-lifecycle stale' === comment.body
+        return '/remove-lifecycle stale' === comment.body.trim()
       }
       return false
     })
