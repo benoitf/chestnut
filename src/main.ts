@@ -141,7 +141,7 @@ export = (robot: Hubot.Robot<void>): void => {
     await notifications.check();
   }
 
-  const pattern = "*/10 * * * *";
+  const pattern = "*/2 * * * *";
   const timezone = "Europe/Paris";
   const job: CronJob = new CronJob(pattern, () => {
     try {
