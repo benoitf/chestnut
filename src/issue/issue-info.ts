@@ -88,8 +88,12 @@ export class IssueInfo {
 
   public hasStatus(): boolean {
     return this.hasMatchingLabel("status");
-
   }
+
+  public hasSeverity(): boolean {
+    return this.hasMatchingLabel("severity");
+  }
+  
 
   public hasKind(): boolean {
     return this.hasMatchingLabel("kind");
