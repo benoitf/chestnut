@@ -7,7 +7,8 @@ export class AddTriageIssueIfNew implements IssueHandler {
 
   public execute(issueInfo: IssueInfo, actions: Actions, notifier: Notifier): void {
     // already a status, ignore it
-    if (issueInfo.isClosed() || issueInfo.hasStatus() || issueInfo.repositoryName() !== "che" || issueInfo.milestone() != "" || issueInfo.hasSeverity()) {
+    if (issueInfo.isClosed() || issueInfo.hasStatus() || issueInfo.repositoryName() !== "che" || issueInfo.milestone() != "" || issueInfo.hasSeverity()
+       || issueInfo.hasLabel("automated")) {
       return;
     }
 
